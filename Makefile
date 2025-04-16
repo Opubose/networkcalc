@@ -1,8 +1,8 @@
 JAVAC = javac
 JAVA = java
 
-SRC_DIR = src/
-BIN_DIR = bin/
+SRC_DIR = src
+BIN_DIR = bin
 SOURCES = $(wildcard $(SRC_DIR)/*.java)
 CLASSES = $(SOURCES:$(SRC_DIR)/%.java=$(BIN_DIR)/%.class)
 
@@ -10,7 +10,7 @@ all: compile
 
 compile: $(CLASSES)
 
-$(BIN_DIR)/%.class: $(SRC)/%.java
+$(BIN_DIR)/%.class: $(SRC_DIR)/%.java
 	@mkdir -p $(BIN_DIR)
 	$(JAVAC) -d $(BIN_DIR) $<
 
