@@ -1,17 +1,23 @@
+JAVAC = javac
+JAVA = java
+
 SRC_DIR = src/
 BIN_DIR = bin/
-CLASSES = $(shell find $(SRC_DIR) -name "*.java")
+SOURCES = $(wildcard $(SRC_DIR)/*.java)
+CLASSES = $(SOURCES:$(SRC_DIR)/%.java=$(BIN_DIR)/%.class)
 
 all: compile
 
-compile:
-	mkdir -p $(BIN_DIR)
-	javac -d $(BIN_DIR) $(CLASSES)
+compile: $(CLASSES)
 
-run-server:
-	java -cp $(BIN_DIR) MathServer
+$(BIN_DIR)/%.class: $(SRC)/%.java
+	@mkdir -p $(BIN_DIR)
+	$(JAVAC) -d $(BIN_DIR) $<
 
-run-client:
+run-server: compile
+	$(JAVA) -cp $(BIN_DIR) MathServer
+
+run-client: compile
 	java -cp $(BIN_DIR) MathClient
 
 clean:
