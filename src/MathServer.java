@@ -92,20 +92,23 @@ public class MathServer {
         List<String> output = new ArrayList<>();
         Stack<String> ops = new Stack<>();
 
-        for (final String token : tokens) {
+        for (String token : tokens) {
             if (token.matches("\\d+(\\.\\d+)?")) {
                 output.add(token);
             } else if (prec.containsKey(token)) {
-                while (!ops.isEmpty() && prec.containsKey(ops.peek()) && prec.get(ops.peek()) >= prec.get(token)) {
+                while (!ops.isEmpty()
+                       && prec.containsKey(ops.peek())
+                       && prec.get(ops.peek()) >= prec.get(token)) {
                     output.add(ops.pop());
                 }
+                ops.push(token);
             } else if ("(".equals(token)) {
                 ops.push(token);
             } else if (")".equals(token)) {
                 while (!ops.isEmpty() && !"(".equals(ops.peek())) {
                     output.add(ops.pop());
                 }
-                if (ops.isEmpty() || !"(".equals(ops.pop())) {
+                if (ops.isEmpty() || ! "(".equals(ops.pop())) {
                     throw new IllegalArgumentException("Invalid Expression Format");
                 }
             } else {
@@ -140,10 +143,10 @@ public class MathServer {
                 eval.push(Double.parseDouble(token));
             }
         }
+
         if (eval.size() != 1) {
             throw new IllegalArgumentException("Invalid Expression Format");
         }
-
         return eval.pop();
     }
 
