@@ -66,6 +66,6 @@ The server's log entries should follow a consistent timestamped format as enumer
   - **Calculation Request Log:**
     `[2025-04-15 14:31:00] CALC_REQUEST - Alice: Expression received: 12+7*3`
   - **Calculation Response Log:**
-    `[2025-04-15 14:31:05] CALC_RESPONSE - Alice: Result computed: 33`
+    `[2025-04-15 14:31:05] CALC_RESPONSE - Alice: 12+7*3 = 33`
   - **Disconnection Log:**
-    `[2025-04-15 14:32:00] DISCONNECT - Alice: Client disconnected after 33 seconds`
+    `[2025-04-15 14:30:40] DISCONNECT - Alice: Client disconnected after 15 seconds`
