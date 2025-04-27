@@ -52,24 +52,20 @@ The app uses the following message types for its protocol to communicate data be
   - **Example:**  
     `ERR:Invalid Expression Format`
 
----
-
 ### 2. Server Logging Format
 
 The server's log entries should follow a consistent timestamped format as enumerated below.
 
 - **Log Entry Format:**
-  - **General Format:**  
+  - **General Format:**
     `[YYYY-MM-DD hh:mm:ss] <EVENT> - <ClientName>: <Details>`
   
 - **Examples:**
-  - **Connection Log:**  
-    `[2025-04-15 14:30:25] CONNECT - Alice: Connected from 192.168.1.2:54321`
-  - **Calculation Request Log:**  
+  - **Connection Log:**
+    `[2025-04-15 14:30:25] CONNECT - Alice: Connected from 127.0.0.1:54321`
+  - **Calculation Request Log:**
     `[2025-04-15 14:31:00] CALC_REQUEST - Alice: Expression received: 12+7*3`
-  - **Calculation Response Log:**  
+  - **Calculation Response Log:**
     `[2025-04-15 14:31:05] CALC_RESPONSE - Alice: Result computed: 33`
-  - **Disconnection Log:**  
-    `[2025-04-15 14:32:00] DISCONNECT - Alice: Client disconnected`
-
----
+  - **Disconnection Log:**
+    `[2025-04-15 14:32:00] DISCONNECT - Alice: Client disconnected after 33 seconds`
