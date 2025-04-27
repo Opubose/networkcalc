@@ -9,12 +9,18 @@ This project demonstrates basic networking, concurrency, and protocol design in 
 
 ## How to Compile
 
-First, clone or download the project files, then open a terminal in the project root directory.
+First, clone or download the project files, then open a terminal or command prompt in the project root directory.
 
-Compile the server and client source files:
+On a Unix system, compile the server and client source files using:
 
 ```bash
-make all
+make
+```
+
+On Windows, you may use:
+
+```bash
+build.bat compile
 ```
 
 This will produce `MathServer.class` and `MathClient.class` in the `bin/` project sub-directory.
@@ -23,8 +29,13 @@ This will produce `MathServer.class` and `MathClient.class` in the `bin/` projec
 
 ### 1. Start the Server
 
+Unix:
 ```bash
 make run-server
+```
+Windows:
+```bash
+build.bat run-server
 ```
 
 This will start the server listening on port `12345`.
@@ -35,8 +46,13 @@ This will start the server listening on port `12345`.
 
 In a new terminal window, run:
 
+Unix:
 ```bash
 make run-client
+```
+Windows:
+```bash
+build.bat run-client
 ```
 
 You will be prompted to enter your name once the client is running. After connecting to the server, the client will randomly generate and send three arithmetic expressions at random intervals to the server. Then, it will disconnect automatically.
