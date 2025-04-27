@@ -104,13 +104,13 @@ public class MathClient {
     }
 
     private void sendRandomExpression() {
-        String expr = buildRandomExpression();
+        final String expr = buildRandomExpression();
         sendMessage("CALC:" + clientName + ":" + expr);
         System.out.println("[" + LocalDateTime.now().format(TS) + "] Sent: " + expr);
     }
 
     private String buildRandomExpression() {
-        final int terms = RNG.nextInt(3) + 6; // Between 3 to 8 operands
+        final int terms = RNG.nextInt(6) + 3; // Between 3 to 8 operands
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < terms; i++) {
             sb.append(RNG.nextInt(100) + 1);    // Generate operand
