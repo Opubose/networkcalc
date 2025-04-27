@@ -12,13 +12,13 @@ compile: $(CLASSES)
 
 $(BIN_DIR)/%.class: $(SRC_DIR)/%.java
 	@mkdir -p $(BIN_DIR)
-	$(JAVAC) -d $(BIN_DIR) $<
+	@$(JAVAC) -d $(BIN_DIR) $<
 
 run-server: compile
-	$(JAVA) -cp $(BIN_DIR) MathServer
+	@$(JAVA) -cp $(BIN_DIR) MathServer
 
 run-client: compile
-	java -cp $(BIN_DIR) MathClient
+	@$(JAVA) -cp $(BIN_DIR) MathClient
 
 clean:
-	rm -rf $(BIN_DIR)
+	@rm -rf $(BIN_DIR)

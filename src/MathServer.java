@@ -1,178 +1,327 @@
-import java.net.Socket;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.io.FileWriter;
-import java.io.BufferedWriter;
-import java.io.OutputStreamWriter;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Stack;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.Map;
-import java.util.HashMap;
-
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class MathServer {
-    private static ServerSocket serverSocket;
     private static final int PORT = 12345;
-    private static final String LOG_FILE = "logs/server.log";
-    private static final SimpleDateFormat TIMESTAMP = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    
+    private static final ConcurrentMap<String, ClientHandler> clients = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<String, Instant> connectTimes = new ConcurrentHashMap<>();
+    private static final BlockingQueue<CalcRequest> requestQueue = new LinkedBlockingQueue<>(); // Maintains FIFO order for all the calculation requests from the clients
+    private static final ExecutorService clientPool = Executors.newFixedThreadPool(5);  // Enforcing at most 5 simultaneous threads to be handled, one for each client
 
-    // Thread pool for handling client connections
-    private static ExecutorService clientPool = Executors.newCachedThreadPool();
-
-    // Map to store client connections
-    private static Map<String, ClientHandler> clients = new HashMap<>();
+    private static final Map<String, Integer> prec = Map.of("+", 1,
+        "-", 1,
+        "*", 2,
+        "/", 2,
+        "%", 2
+    );
 
     public static void main(String[] args) {
-        try {
-            serverSocket = new ServerSocket(PORT);
-            log("SERVER STARTED on port " + PORT);
+        setupLogFile();
+        startRequestProcessor();
 
+        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+            log("CONNECT", "SERVER", "Server started on port " + PORT);
             while (true) {
-                // Accept client connection on a new thread
                 final Socket clientSocket = serverSocket.accept();
                 clientPool.execute(new ClientHandler(clientSocket));
-                log("Client connected: " + clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort());
             }
         } catch (IOException e) {
-            log("Error in server: " + e.getMessage());
-            e.printStackTrace();
+            log("ERR", "SERVER", "Failed to start server: " + e.getMessage());
         } finally {
-            if (serverSocket != null) {
+            clientPool.shutdown();
+        }
+    }
+
+    private static void startRequestProcessor() {
+        final Thread processor = new Thread(() -> {
+            while (true) {
                 try {
-                    serverSocket.close();
-                } catch (IOException e) {
-                    System.err.println("Error closing server socket " + e.getMessage());
-                    e.printStackTrace();
+                    final CalcRequest req = requestQueue.take();    // Take a calculation request from the FIFO queue
+                    log("CALC_REQUEST", req.clientName, "Expression received: " + req.expression);
+                    try {
+                        final double value = calculate(req.expression);
+                        final String result = formatResult(value);
+                        req.handler.sendMessage("RES:" + req.clientName + ":" + result);
+                        log("CALC_RESPONSE", req.clientName, req.expression + " = " + result);
+                    } catch (IllegalArgumentException ex) {
+                        req.handler.sendMessage("ERR:" + ex.getMessage());
+                        log("ERR", req.clientName, ex.getMessage());
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
             }
+        }, "RequestProcessor");
+        processor.setDaemon(true);
+        processor.start();
+    }
+
+    /**
+     * Calculates the arithmetical value of the provided expression using the standard Shunting Yard Algorithm
+     * @param expression The arithmetic expression provided as a String
+     * @return the computed value of the calculation as a String
+     * @throws IllegalArgumentException if the expression is malformed
+     */
+    private static double calculate(final String expression) {
+        List<String> tokens = tokenize(expression);
+        List<String> output = new ArrayList<>();
+        Stack<String> ops = new Stack<>();
+
+        for (String token : tokens) {
+            if (token.matches("\\d+(\\.\\d+)?")) {
+                output.add(token);
+            } else if (prec.containsKey(token)) {
+                while (!ops.isEmpty()
+                       && prec.containsKey(ops.peek())
+                       && prec.get(ops.peek()) >= prec.get(token)) {
+                    output.add(ops.pop());
+                }
+                ops.push(token);
+            } else if ("(".equals(token)) {
+                ops.push(token);
+            } else if (")".equals(token)) {
+                while (!ops.isEmpty() && !"(".equals(ops.peek())) {
+                    output.add(ops.pop());
+                }
+                if (ops.isEmpty() || ! "(".equals(ops.pop())) {
+                    throw new IllegalArgumentException("Invalid Expression Format");
+                }
+            } else {
+                throw new IllegalArgumentException("Invalid Expression Format");
+            }
+        }
+        while (!ops.isEmpty()) {
+            final String op = ops.pop();
+            if ("(".equals(op) || ")".equals(op)) {
+                throw new IllegalArgumentException("Invalid Expression Format");
+            }
+            output.add(op);
+        }
+        
+        Stack<Double> eval = new Stack<>();
+        for (final String token : output) {
+            if (prec.containsKey(token)) {
+                if (eval.size() < 2) {
+                    throw new IllegalArgumentException("Invalid Expression Format");
+                }
+
+                final double b = eval.pop();
+                final double a = eval.pop();
+                switch (token) {
+                    case "+" -> eval.push(a + b);
+                    case "-" -> eval.push(a - b);
+                    case "*" -> eval.push(a * b);
+                    case "/" -> eval.push(a / b);
+                    case "%" -> eval.push(a % b);
+                }
+            } else {
+                eval.push(Double.parseDouble(token));
+            }
+        }
+
+        if (eval.size() != 1) {
+            throw new IllegalArgumentException("Invalid Expression Format");
+        }
+        return eval.pop();
+    }
+
+    /**
+     * Splits the given expression string into a {@code List} of numbers, operators, and parentheses
+     */
+    private static List<String> tokenize(final String expr) {
+        final String spaced = expr.replaceAll("([()+\\-*/%])", " $1 ");
+        final String[] parts = spaced.trim().split("\\s+");
+        return List.of(parts);
+    }
+
+    /**
+     * Utility function for converting the given double expression into a Long
+     * @param result
+     * @return
+     */
+    private static String formatResult(final double result) {
+        if (result == (long) result) {
+            return Long.toString((long) result);
+        }
+        return Double.toString(result);
+    }
+
+    /**
+     * First, this creates the log sub-directory if it doesn't exist already. Then, it makes a new server.log file, replacing a previous one, if it exists.
+     * @throws IOException if the log dir could not be created
+     */
+    private static void setupLogFile() {
+        try {
+            final Path logDir = Paths.get("logs");
+            Files.createDirectories(logDir);
+            
+            final Path logFile = logDir.resolve("server.log");
+            if (Files.exists(logFile)) {
+                Files.delete(logFile);
+            }
+
+            Files.createFile(logFile);
+        } catch (IOException e) {
+            System.err.println("Could not create log directory or file: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Utility function for logging server events. All logs are printed to stdout and also to the log file in the logs sub-directory.
+     * @param event The event being logged. They can be one of {@code JOIN},{@code CALC}, or {@code LEAVE}.
+     * @param clientName The name of the client to which {@code event} belongs.
+     * @param details Information about the event.
+     */
+    private static void log(final String event, final String clientName, final String details) {
+        final String timestamp = LocalDateTime.now().format(TIMESTAMP);
+        final String entry = String.format("[%s] %s - %s: %s", timestamp, event, clientName, details);
+        System.out.println(entry);
+        try {
+            Files.writeString(
+                Path.of("logs/server.log"),
+                entry + System.lineSeparator(),
+                StandardOpenOption.CREATE, StandardOpenOption.APPEND
+            );
+        } catch (IOException e) {
+            System.err.println("Failed to write log: " + e.getMessage());
+        }
+    }
+
+    
+    private static class CalcRequest {
+        final String clientName;
+        final String expression;
+        final ClientHandler handler;
+
+        /**
+         * A basic utility class that tracks relevant information for each incoming calculation request
+         */
+        CalcRequest(final String clientName, final String expression, final ClientHandler handler) {
+            this.clientName = clientName;
+            this.expression = expression;
+            this.handler = handler;
         }
     }
 
     private static class ClientHandler implements Runnable {
-        private Socket socket;
+        private final Socket socket;
+        private String clientName;
+        private PrintWriter out;
 
-        public ClientHandler(Socket socket) {
+        ClientHandler(Socket socket) {
             this.socket = socket;
         }
 
+        @Override
         public void run() {
-            final String clientAddress = socket.getInetAddress().getHostAddress() + ":" + socket.getPort();
-            BufferedReader in = null;
-            BufferedWriter out = null;
-            String clientName = null;
-            try {
-                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-                //Handle messages from the client   
+            final String clientAddr = socket.getRemoteSocketAddress().toString();
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                 PrintWriter writer = new PrintWriter(socket.getOutputStream(), true)) {
+
+                this.out = writer;
                 String line;
                 while ((line = in.readLine()) != null) {
-                    System.out.println("client message: " + line);
-                    String[] parts = line.split(":");
-                    String command = parts[0];
-                    
-                    if (command.equals("JOIN")) {
-                        // Add client to the list of clients
-                        clientName = parts[1];
-                        clients.put(clientName, this);
-                        log("CONNECT - " + clientName + ": Connected from " + clientAddress);
-                        
-                        // Send ACK response
-                        out.write("\nACK:" + clientName + ": Successfully joined the server");
-                        out.newLine();
-                        out.flush();
-                    } else if (command.equals("CALC")) {
-                        // Get client name and expression
-                        clientName = parts[1];
-                        String expression = parts[2];
-                        
-                        // Calculate the result of the expression
-                        String result = calculate(expression);
-                        out.write("\nRES:" + clientName + ":" + result);
-                        
-                        log("CALC_REQUEST - " + clientName + ": Expression received: " + expression);
-                        log("CALC_RESPONSE - " + clientName + ": Result computed: " + result);
-                        
-                        out.newLine();
-                        out.flush();
-                    } else if (command.equals("LEAVE")) {
-                        clientName = parts[1];
-                        clients.remove(clientName);
-                        break; // Exit the loop to close the connection
+                    String[] parts = line.split(":", 2);    // Parse the input from client
+                    if (parts.length != 2) {
+                        sendMessage("ERR:Invalid Expression Format");
+                        log("ERR", "UNKNOWN", "Malformed command");
+                        continue;
+                    }
+                    final String cmd = parts[0];
+                    switch (cmd) {  // Process the request from client
+                        case "JOIN" -> handleJoin(parts[1], clientAddr);
+                        case "CALC" -> handleCalc(parts[1]);
+                        case "LEAVE" -> {
+                            sendMessage("ACK:" + clientName + ":Goodbye");
+                            return;
+                        }
+                        default -> {
+                            sendMessage("ERR:Invalid Expression Format");
+                            log("ERR", "UNKNOWN", "Unknown command: " + cmd);
+                        }
                     }
                 }
             } catch (IOException e) {
-                log("ERROR with client - " + clientName + ": " + e.getMessage());
+                log("ERR", clientName != null ? clientName : "UNKNOWN", e.getMessage());
             } finally {
-                try {
-                    socket.close();
-                } catch (IOException ignored) {}
-                log("DISCONNECT - " + clientName + " disconnected");
+                cleanup();
             }
         }
-    }
 
-    private static String calculate(String expression) {
-        try {
-            // Parse the expression
-            System.out.println("Expression: " + expression);
-            String[] tokens = expression.split("(?<=[-+*/%])|(?=[-+*/%])");
-            double result = Double.parseDouble(tokens[0]);
-            
-            // Process each token
-            for (int i = 1; i < tokens.length; i += 2) {
-                String operator = tokens[i];
-                double number = Double.parseDouble(tokens[i + 1]);
-                
-                switch (operator) {
-                    case "+":
-                        result += number;
-                        break;
-                    case "-":
-                        result -= number;
-                        break;
-                    case "*":
-                        result *= number;
-                        break;
-                    case "/":
-                        result /= number;
-                        break;
-                    case "%":
-                        result %= number;
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Invalid operator: " + operator);
-                }
+        /**
+         * Describes what the handler thread should do when handling a newly connected client
+         * @param payload The name of the client that joined, usually
+         * @param clientAddr The IP address of the client
+         */
+        private void handleJoin(final String payload, final String clientAddr) {
+            clientName = payload;
+            clients.put(clientName, this);
+            connectTimes.put(clientName, Instant.now());
+            log("CONNECT", clientName, "Connected from " + clientAddr);
+            sendMessage("ACK:" + clientName + ":Welcome");
+        }
+
+        /**
+         * Describes what the handler thread should do to process a calculation request from a client
+         * @param payload An input string in the format {@code <ClientName>:<ArithmeticExpression>}
+         */
+        private void handleCalc(final String payload) {
+            final String[] parts = payload.split(":", 2);
+            if (parts.length != 2) {
+                sendMessage("ERR:Invalid Expression Format");
+                log("ERR", clientName, "CALC missing expression");
+                return;
             }
-            
-            return String.valueOf(result);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid number format: " + e.getMessage());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid expression: " + e.getMessage());
+            final String expr = parts[1];
+            requestQueue.offer(new CalcRequest(clientName, expr, this));    // Add the calc request to the queue of calc requests
         }
-    }
 
-    private static void log(final String message) {
-        final String timestamped = "[" + TIMESTAMP.format(new Date()) + "] " + message;
-        System.out.println(timestamped);
-        
-        java.io.File logDir = new java.io.File("logs");
-        if (!logDir.exists()) {
-            logDir.mkdirs();
+        /**
+         * Describes what the handler thread should do when a client disconnects from the server
+         */
+        private void cleanup() {
+            if (clientName != null) {
+                clients.remove(clientName);
+                final Instant start = connectTimes.remove(clientName);
+                final long secs = start != null ? Duration.between(start, Instant.now()).getSeconds() : 0;  // The number of seconds the client was connected to the server
+                log("DISCONNECT", clientName, "Client disconnected after " + secs + " seconds");
+            }
+            try {
+                socket.close();
+            } catch (IOException ignored) {}
         }
-        
-        try (FileWriter fw = new FileWriter(LOG_FILE, true);
-             BufferedWriter bw = new BufferedWriter(fw);
-             PrintWriter out = new PrintWriter(bw)) {
 
-            out.println(timestamped);
-        } catch (IOException e) {
-            System.err.println("Failed to write to log file: " + e.getMessage());
+        /**
+         * Utility function for sending messages from the server to clients
+         * @param msg The message to be sent to the connected client
+         */
+        private void sendMessage(final String msg) {
+            out.println(msg);
         }
     }
 }
