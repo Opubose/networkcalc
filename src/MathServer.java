@@ -66,7 +66,7 @@ public class MathServer {
                         final double value = calculate(req.expression);
                         final String result = formatResult(value);
                         req.handler.sendMessage("RES:" + req.clientName + ":" + result);
-                        log("CALC_RESPONSE", req.clientName, "Result computed: " + result);
+                        log("CALC_RESPONSE", req.clientName, req.expression + " = " + result);
                     } catch (IllegalArgumentException ex) {
                         req.handler.sendMessage("ERR:" + ex.getMessage());
                         log("ERR", req.clientName, ex.getMessage());
