@@ -1,71 +1,96 @@
 # networkcalc
-NetworkCalc: a client-server application using Java sockets that allows clients to send arithmetic expressions to the server, which evaluates and returns the computed result. Calc is slang for calculator btw.
 
-## Messaging protocol
-The app uses the following message types for its protocol to communicate data between client and server. Keep in mind that each message is implicitly terminated with a newline character `\n` to clearly mark its end.
+**NetworkCalc** is a simple client-server application using Java sockets that allows multiple clients to send arithmetic expressions to a centralized server, which evaluates the expressions and returns the computed results. ("Calc" is slang for calculator, btw.)
+
+This project demonstrates basic networking, concurrency, and protocol design in Java.
+
+## Requirements
+- Java 21 or later.
+
+## How to Compile
+
+First, clone or download the project files, then open a terminal in the project root directory.
+
+Compile the server and client source files:
+
+```bash
+make all
+```
+
+This will produce `MathServer.class` and `MathClient.class` in the `bin/` project sub-directory.
+
+## How to Run
+
+### 1. Start the Server
+
+```bash
+make run-server
+```
+
+This will start the server listening on port `12345`.
+
+> Note: A `logs/` sub-directory will be created automatically, and a fresh `server.log` file will be generated for each server run.
+
+### 2. Start a Client
+
+In a new terminal window, run:
+
+```bash
+make run-client
+```
+
+You will be prompted to enter your name once the client is running. After connecting to the server, the client will randomly generate and send three arithmetic expressions at random intervals to the server. Then, it will disconnect automatically.
+
+You can open multiple clients at once to simulate multiple users connecting and interacting with the server simultaneously.
+
+## Messaging Protocol
+
+The app uses the following message types for communication between client and server.  
+Each message is implicitly terminated with a newline character `\n`.
 
 ### 1. Protocol Message Types
 
-#### a. **Client-to-Server Messages**
+#### a. Client-to-Server Messages
 
-- **Connection Request (JOIN):**
-  - **Purpose:** The client notifies the server about its connection and identifies itself by name.
-  - **Format:**  
-    `JOIN:<ClientName>`
-  - **Example:**  
-    `JOIN:Alice`
+- Connection Request (JOIN):
+  - Format: `JOIN:<ClientName>`
+  - Example: `JOIN:Alice`
 
-- **Calculation Request (CALC):**
-  - **Purpose:** The client sends an arithmetic expression for evaluation. The expression must include at least two operators from the set `+, -, *, /, %`.
-  - **Format:**  
-    `CALC:<ClientName>:<ArithmeticExpression>`
-  - **Example:**  
-    `CALC:Alice:12+7*3`
+- Calculation Request (CALC):
+  - Format: `CALC:<ClientName>:<ArithmeticExpression>`
+  - Example: `CALC:Alice:12+7*3`
 
-- **Disconnection Request (LEAVE):**
-  - **Purpose:** The client informs the server that it is disconnecting.
-  - **Format:**  
-    `LEAVE:<ClientName>`
-  - **Example:**  
-    `LEAVE:Alice`
+- Disconnection Request (LEAVE):
+  - Format: `LEAVE:<ClientName>`
+  - Example: `LEAVE:Alice`
 
-#### b. **Server-to-Client Messages**
+#### b. Server-to-Client Messages
 
-- **Acknowledgment (ACK):**
-  - **Purpose:** The server confirms a successful connection upon receiving a JOIN message.
-  - **Format:**  
-    `ACK:<ClientName>:<ServerMessage>`
-  - **Example:**  
-    `ACK:Alice:Welcome`
+- Acknowledgment (ACK):
+  - Format: `ACK:<ClientName>:<ServerMessage>`
+  - Example: `ACK:Alice:Welcome`
 
-- **Calculation Response (RES):**
-  - **Purpose:** The server returns the result of the arithmetic computation.
-  - **Format:**  
-    `RES:<ClientName>:<Result>`
-  - **Example:**  
-    `RES:Alice:33`
+- Calculation Response (RES):
+  - Format: `RES:<ClientName>:<Result>`
+  - Example: `RES:Alice:33`
 
-- **Error Message (ERR):**
-  - **Purpose:** In case of an error (e.g., invalid format, computation error), the server informs the client of the issue.
-  - **Format:**  
-    `ERR:<ErrorDescription>`
-  - **Example:**  
-    `ERR:Invalid Expression Format`
+- Error Message (ERR):
+  - Format: `ERR:<ErrorDescription>`
+  - Example: `ERR:Invalid Expression Format`
 
-### 2. Server Logging Format
+## Server Logging Format
 
-The server's log entries should follow a consistent timestamped format as enumerated below.
+The server writes events to the console and into `logs/server.log` in the following format:
 
-- **Log Entry Format:**
-  - **General Format:**
-    `[YYYY-MM-DD hh:mm:ss] <EVENT> - <ClientName>: <Details>`
-  
-- **Examples:**
-  - **Connection Log:**
+- Log Entry Format: 
+  `[YYYY-MM-DD hh:mm:ss] <EVENT> - <ClientName>: <Details>`
+
+- Examples:
+  - Connection:
     `[2025-04-15 14:30:25] CONNECT - Alice: Connected from 127.0.0.1:54321`
-  - **Calculation Request Log:**
+  - Calculation Request:  
     `[2025-04-15 14:31:00] CALC_REQUEST - Alice: Expression received: 12+7*3`
-  - **Calculation Response Log:**
-    `[2025-04-15 14:31:05] CALC_RESPONSE - Alice: 12+7*3 = 33`
-  - **Disconnection Log:**
-    `[2025-04-15 14:30:40] DISCONNECT - Alice: Client disconnected after 15 seconds`
+  - Calculation Response:  
+    `[2025-04-15 14:31:05] CALC_RESPONSE - Alice: Result computed: 33`
+  - Disconnection:  
+    `[2025-04-15 14:32:00] DISCONNECT - Alice: Client disconnected after 120 seconds`
