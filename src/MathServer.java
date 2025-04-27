@@ -27,9 +27,9 @@ public class MathServer {
     private static final int PORT = 12345;
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     
-    private static final ConcurrentMap<String, ClientHandler> clients = new ConcurrentHashMap<>();
-    private static final ConcurrentMap<String, Instant> connectTimes = new ConcurrentHashMap<>();
-    private static final BlockingQueue<CalcRequest> requestQueue = new LinkedBlockingQueue<>(); // Maintains FIFO order for all the calculation requests from the clients
+    private static final ConcurrentMap<String, ClientHandler> clients = new ConcurrentHashMap<>();  // Stores the assigned ClientHandler object for each clientName
+    private static final ConcurrentMap<String, Instant> connectTimes = new ConcurrentHashMap<>();   // Stores the time at which each client joined the server, indexed by clientName
+    private static final BlockingQueue<CalcRequest> requestQueue = new LinkedBlockingQueue<>(); // A central queue to store all incoming calculation requests in FIFO order
     private static final ExecutorService clientPool = Executors.newCachedThreadPool();
 
     private static final Map<String, Integer> prec = Map.of(
@@ -42,7 +42,7 @@ public class MathServer {
 
     public static void main(String[] args) {
         setupLogFile();
-        startRequestProcessor();
+        startRequestProcessor();    // Init a central background thread to handle all calculation requests and send back their appropriate results to the clients
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             log("CONNECT", "SERVER", "Server started on port " + PORT);
@@ -57,6 +57,11 @@ public class MathServer {
         }
     }
 
+    /**
+     * Launches a dedicated central background thread that continuously reads calculation requests in FIFO order.
+     * This thread calls the relevant functions to calculate the output of the expressions and then creates a response to send back to the appropriate client based on that.
+     * It also logs the incoming request and the outgoing response.
+     */
     private static void startRequestProcessor() {
         final Thread processor = new Thread(() -> {
             while (true) {
@@ -243,16 +248,18 @@ public class MathServer {
             final String clientAddr = socket.getRemoteSocketAddress().toString();
             try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                  PrintWriter writer = new PrintWriter(socket.getOutputStream(), true)) {
-
                 this.out = writer;
+                
                 String line;
                 while ((line = in.readLine()) != null) {
-                    String[] parts = line.split(":", 2);    // Parse the input from client
+                    final String[] parts = line.split(":", 2);    // Parse the input from client
+
                     if (parts.length != 2) {
                         sendMessage("ERR:Invalid Expression Format");
                         log("ERR", "UNKNOWN", "Malformed command");
                         continue;
                     }
+
                     final String cmd = parts[0];
                     switch (cmd) {  // Process the request from client
                         case "JOIN" -> handleJoin(parts[1], clientAddr);
@@ -281,6 +288,8 @@ public class MathServer {
          */
         private void handleJoin(final String payload, final String clientAddr) {
             clientName = payload;
+
+            // Record both the assigned handler object and the join time for each client
             clients.put(clientName, this);
             connectTimes.put(clientName, Instant.now());
             log("CONNECT", clientName, "Connected from " + clientAddr);
