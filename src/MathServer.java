@@ -40,7 +40,7 @@ public class MathServer {
     );
 
     public static void main(String[] args) {
-        createLogDirectory();
+        setupLogFile();
         startRequestProcessor();
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
@@ -172,14 +172,22 @@ public class MathServer {
     }
 
     /**
-     * Creates the {@code log} sub-directory if it doesn't exist already
+     * First, this creates the log sub-directory if it doesn't exist already. Then, it makes a new server.log file, replacing a previous one, if it exists.
      * @throws IOException if the log dir could not be created
      */
-    private static void createLogDirectory() {
+    private static void setupLogFile() {
         try {
-            Files.createDirectories(Paths.get("logs"));
+            final Path logDir = Paths.get("logs");
+            Files.createDirectories(logDir);
+            
+            final Path logFile = logDir.resolve("server.log");
+            if (Files.exists(logFile)) {
+                Files.delete(logFile);
+            }
+
+            Files.createFile(logFile);
         } catch (IOException e) {
-            System.err.println("Could not create log directory: " + e.getMessage());
+            System.err.println("Could not create log directory or file: " + e.getMessage());
         }
     }
 
