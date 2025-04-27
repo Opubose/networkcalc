@@ -20,7 +20,7 @@ make
 On Windows, you may use:
 
 ```bash
-build.bat compile
+.\build.bat compile
 ```
 
 This will produce `MathServer.class` and `MathClient.class` in the `bin/` project sub-directory.
@@ -35,7 +35,7 @@ make run-server
 ```
 Windows:
 ```bash
-build.bat run-server
+.\build.bat run-server
 ```
 
 This will start the server listening on port `12345`.
@@ -52,7 +52,7 @@ make run-client
 ```
 Windows:
 ```bash
-build.bat run-client
+.\build.bat run-client
 ```
 
 You will be prompted to enter your name once the client is running. After connecting to the server, the client will randomly generate and send three arithmetic expressions at random intervals to the server. Then, it will disconnect automatically.
