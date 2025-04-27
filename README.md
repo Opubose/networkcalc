@@ -107,6 +107,6 @@ The server writes events to the console and into `logs/server.log` in the follow
   - Calculation Request:  
     `[2025-04-15 14:31:00] CALC_REQUEST - Alice: Expression received: 12+7*3`
   - Calculation Response:  
-    `[2025-04-15 14:31:05] CALC_RESPONSE - Alice: Result computed: 33`
+    `[2025-04-15 14:31:05] CALC_RESPONSE - Alice: 12+7*3 = 33`
   - Disconnection:  
     `[2025-04-15 14:32:00] DISCONNECT - Alice: Client disconnected after 120 seconds`
