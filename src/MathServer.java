@@ -30,9 +30,10 @@ public class MathServer {
     private static final ConcurrentMap<String, ClientHandler> clients = new ConcurrentHashMap<>();
     private static final ConcurrentMap<String, Instant> connectTimes = new ConcurrentHashMap<>();
     private static final BlockingQueue<CalcRequest> requestQueue = new LinkedBlockingQueue<>(); // Maintains FIFO order for all the calculation requests from the clients
-    private static final ExecutorService clientPool = Executors.newFixedThreadPool(5);  // Enforcing at most 5 simultaneous threads to be handled, one for each client
+    private static final ExecutorService clientPool = Executors.newCachedThreadPool();
 
-    private static final Map<String, Integer> prec = Map.of("+", 1,
+    private static final Map<String, Integer> prec = Map.of(
+        "+", 1,
         "-", 1,
         "*", 2,
         "/", 2,
