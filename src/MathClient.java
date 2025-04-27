@@ -6,7 +6,10 @@ import java.net.Socket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Random;
-import java.util.concurrent.*;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * MathClient connects to MathServer, sends JOIN, periodically dispatches random
@@ -49,15 +52,17 @@ public class MathClient {
         // Start background reader
         readerExecutor.execute(this::readLoop);
 
-        final int expr_count = MIN_EXPRESSION_COUNT + RNG.nextInt(2);   // Send between 3 and 5 total arithmetic expressions 
+        final int expr_count = MIN_EXPRESSION_COUNT + RNG.nextInt(6);   // Generate and send between 3 and 8 (inclusive) total arithmetic expressions 
 
         // Schedule random expression sends
         for (int i = 0; i < expr_count; i++) {
-            int delay = RNG.nextInt(MAX_DELAY_SECONDS) + 1;
+            final int delay = RNG.nextInt(MAX_DELAY_SECONDS) + 1;
             scheduler.schedule(this::sendRandomExpression, delay, TimeUnit.SECONDS);
         }
-        // Schedule graceful leave after max delay + buffer
-        scheduler.schedule(this::sendLeave, MAX_DELAY_SECONDS + 2, TimeUnit.SECONDS);
+
+        // Schedule graceful leave
+        final int lifetime = RNG.nextInt(MAX_DELAY_SECONDS + 2) + 10;  // Each client's lifetime will be in the range [10, MAX_DELAY_SECONDS + 1] seconds
+        scheduler.schedule(this::sendLeave, lifetime, TimeUnit.SECONDS);
 
         // Wait until leave processed
         while (running) {
@@ -110,10 +115,11 @@ public class MathClient {
     }
 
     private String buildRandomExpression() {
-        final int terms = RNG.nextInt(6) + 3; // Between 3 to 8 operands
+        final int terms = RNG.nextInt(8) + 3; // Between 3 and 10 (inclusive) operands
         StringBuilder sb = new StringBuilder();
+        
         for (int i = 0; i < terms; i++) {
-            sb.append(RNG.nextInt(100) + 1);    // Generate operand
+            sb.append(RNG.nextInt(100));    // Generate integer operand in the range [0, 100)
             if (i < terms - 1) {
                 sb.append(randomOperator());
             }
