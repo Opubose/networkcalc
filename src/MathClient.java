@@ -33,6 +33,12 @@ public class MathClient {
     private String clientName;
     private volatile boolean running = true;
 
+    /**
+     * Main entry point for the client application. Creates a client instance,
+     * starts it, and ensures proper shutdown.
+     * 
+     * @param args Command-line arguments (not used)
+     */
     public static void main(String[] args) {
         MathClient client = new MathClient();
         try {
@@ -44,6 +50,13 @@ public class MathClient {
         }
     }
 
+    /**
+     * Starts the client, connecting to the server, performing the JOIN handshake,
+     * scheduling random expression sends, and waiting until all operations complete.
+     * 
+     * @throws IOException If there's an error with network communication
+     * @throws InterruptedException If the thread is interrupted while waiting
+     */
     public void start() throws IOException, InterruptedException {
         // Open connection and perform JOIN handshake
         connect();
@@ -70,6 +83,12 @@ public class MathClient {
         }
     }
 
+    /**
+     * Establishes a connection to the server, initializes the input/output streams,
+     * prompts for a client name, and sends the JOIN message.
+     * 
+     * @throws IOException If there's an error with network communication or user input
+     */
     private void connect() throws IOException {
         socket = new Socket(HOST, PORT);
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -82,6 +101,13 @@ public class MathClient {
         sendMessage("JOIN:" + clientName);
     }
 
+    /**
+     * Waits for and processes the acknowledgment from the server after sending
+     * the JOIN message. Blocks until an ACK is received for this client.
+     * 
+     * @throws IOException If there's an error with network communication
+     * @throws InterruptedException If the thread is interrupted while waiting
+     */
     private void awaitAck() throws IOException, InterruptedException {
         String response;
         
@@ -95,6 +121,10 @@ public class MathClient {
         throw new IOException("No ACK received");
     }
 
+    /**
+     * Continuously reads and displays messages from the server.
+     * Runs in its own thread until the client is shut down or an error occurs.
+     */
     private void readLoop() {
         try {
             String line;
@@ -108,12 +138,21 @@ public class MathClient {
         }
     }
 
+    /**
+     * Generates a random arithmetic expression and sends it to the server.
+     * This method is scheduled to run periodically.
+     */
     private void sendRandomExpression() {
         final String expr = buildRandomExpression();
         sendMessage("CALC:" + clientName + ":" + expr);
         System.out.println("[" + LocalDateTime.now().format(TS) + "] Sent: " + expr);
     }
 
+    /**
+     * Builds a random arithmetic expression with 3-8 operands and random operators.
+     * 
+     * @return A string containing a random arithmetic expression
+     */
     private String buildRandomExpression() {
         final int terms = RNG.nextInt(8) + 3; // Between 3 and 10 (inclusive) operands
         StringBuilder sb = new StringBuilder();
@@ -127,19 +166,37 @@ public class MathClient {
         return sb.toString();
     }
 
+    /**
+     * Selects a random arithmetic operator from the available set.
+     * 
+     * @return A randomly chosen operator character (+, -, *, /, or %)
+     */
     private char randomOperator() {
         return ops[RNG.nextInt(ops.length)];
     }
 
+    /**
+     * Sends a LEAVE message to the server to indicate the client is disconnecting.
+     * Also sets the running flag to false to initiate shutdown.
+     */
     private void sendLeave() {
         sendMessage("LEAVE:" + clientName);
         running = false;
     }
 
+    /**
+     * Utility function to send a message to the server.
+     * 
+     * @param msg The message to send
+     */
     private void sendMessage(String msg) {
         if (out != null) out.println(msg);
     }
 
+    /**
+     * Cleans up resources and shuts down the client.
+     * Terminates all threads, closes the socket, and prints a termination message.
+     */
     private void shutdown() {
         running = false;
         scheduler.shutdownNow();

@@ -40,9 +40,33 @@ public class MathServer {
         "%", 2
     );
 
+    /**
+     * Main entry point for the server. Sets up logging, starts the request processor,
+     * initializes console input handling for graceful shutdown, and begins accepting
+     * client connections.
+     * 
+     * @param args Command-line arguments (not used)
+     */
     public static void main(String[] args) {
         setupLogFile();
-        startRequestProcessor();    // Init a central background thread to handle all calculation requests and send back their appropriate results to the clients
+        startRequestProcessor();
+
+        // Add shutdown hook for console input
+        Thread consoleInput = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if ("quit".equalsIgnoreCase(line.trim())) {
+                        log("CONNECT", "SERVER", "Server shutting down...");
+                        System.exit(0);
+                    }
+                }
+            } catch (IOException e) {
+                log("ERR", "SERVER", "Error reading console input: " + e.getMessage());
+            }
+        });
+        consoleInput.setDaemon(true);
+        consoleInput.start();
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             log("CONNECT", "SERVER", "Server started on port " + PORT);
@@ -158,6 +182,9 @@ public class MathServer {
 
     /**
      * Splits the given expression string into a {@code List} of numbers, operators, and parentheses
+     * 
+     * @param expr The string expression to tokenize
+     * @return A list of tokens (numbers, operators, parentheses)
      */
     private static List<String> tokenize(final String expr) {
         final String spaced = expr.replaceAll("([()+\\-*/%])", " $1 ");
@@ -167,8 +194,8 @@ public class MathServer {
 
     /**
      * Utility function for converting the given double expression into a Long
-     * @param result
-     * @return
+     * @param result The calculated result as a double
+     * @return A string representation of the result, as an integer if possible
      */
     private static String formatResult(final double result) {
         if (result == (long) result) {
@@ -219,13 +246,20 @@ public class MathServer {
     }
 
     
+    /**
+     * A basic utility class that tracks relevant information for each incoming calculation request
+     */
     private static class CalcRequest {
         final String clientName;
         final String expression;
         final ClientHandler handler;
 
         /**
-         * A basic utility class that tracks relevant information for each incoming calculation request
+         * Creates a new calculation request with the specified parameters
+         * 
+         * @param clientName The name of the client making the request
+         * @param expression The mathematical expression to calculate
+         * @param handler The client handler instance to send the result back to
          */
         CalcRequest(final String clientName, final String expression, final ClientHandler handler) {
             this.clientName = clientName;
@@ -234,15 +268,28 @@ public class MathServer {
         }
     }
 
+    /**
+     * Handles communication with an individual client. Each client connection
+     * is managed by its own instance of this class running in a separate thread.
+     */
     private static class ClientHandler implements Runnable {
         private final Socket socket;
         private String clientName;
         private PrintWriter out;
 
+        /**
+         * Creates a new client handler for the specified socket
+         * 
+         * @param socket The client socket connection
+         */
         ClientHandler(Socket socket) {
             this.socket = socket;
         }
 
+        /**
+         * Main processing loop for client communication. Reads incoming messages,
+         * parses them, and handles them according to the protocol.
+         */
         @Override
         public void run() {
             final String clientAddr = socket.getRemoteSocketAddress().toString();
