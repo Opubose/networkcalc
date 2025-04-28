@@ -5,6 +5,7 @@
 This project demonstrates basic networking, concurrency, and protocol design in Java.
 
 ## Requirements
+
 - Java 21 or later.
 
 ## How to Compile
@@ -30,10 +31,13 @@ This will produce `MathServer.class` and `MathClient.class` in the `bin/` projec
 ### 1. Start the Server
 
 Unix:
+
 ```bash
 make run-server
 ```
+
 Windows:
+
 ```bash
 .\build.bat run-server
 ```
@@ -42,15 +46,21 @@ This will start the server listening on port `12345`.
 
 > Note: A `logs/` sub-directory will be created automatically, and a fresh `server.log` file will be generated for each server run.
 
+**Shutting Down the Server:**  
+To gracefully terminate the server, simply type `quit` in the terminal where the server is running and press Enter. This will immediately close all active connections and exit the application.
+
 ### 2. Start a Client
 
 In a new terminal window, run:
 
 Unix:
+
 ```bash
 make run-client
 ```
+
 Windows:
+
 ```bash
 .\build.bat run-client
 ```
@@ -69,10 +79,12 @@ Each message is implicitly terminated with a newline character `\n`.
 #### a. Client-to-Server Messages
 
 - Connection Request (JOIN):
+
   - Format: `JOIN:<ClientName>`
   - Example: `JOIN:Alice`
 
 - Calculation Request (CALC):
+
   - Format: `CALC:<ClientName>:<ArithmeticExpression>`
   - Example: `CALC:Alice:12+7*3`
 
@@ -83,10 +95,12 @@ Each message is implicitly terminated with a newline character `\n`.
 #### b. Server-to-Client Messages
 
 - Acknowledgment (ACK):
+
   - Format: `ACK:<ClientName>:<ServerMessage>`
   - Example: `ACK:Alice:Welcome`
 
 - Calculation Response (RES):
+
   - Format: `RES:<ClientName>:<Result>`
   - Example: `RES:Alice:33`
 
@@ -98,7 +112,7 @@ Each message is implicitly terminated with a newline character `\n`.
 
 The server writes events to the console and into `logs/server.log` in the following format:
 
-- Log Entry Format: 
+- Log Entry Format:
   `[YYYY-MM-DD hh:mm:ss] <EVENT> - <ClientName>: <Details>`
 
 - Examples:
