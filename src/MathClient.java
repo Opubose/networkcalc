@@ -24,7 +24,10 @@ public class MathClient {
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final char[] ops = {'+', '-', '*', '/', '%'};
 
+    // Schedules random expression sends and the LEAVE command at random future times
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    
+    // Runs a background thread to read and process server responses asynchronously
     private final ExecutorService readerExecutor = Executors.newSingleThreadExecutor();
 
     private Socket socket;
