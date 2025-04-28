@@ -27,10 +27,13 @@ public class MathServer {
     private static final int PORT = 12345;
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     
+    // Thread pool configuration
+    private static final int MAX_CONCURRENT_CLIENTS = 5; // Maximum number of concurrent client connections
+    
     private static final ConcurrentMap<String, ClientHandler> clients = new ConcurrentHashMap<>();  // Stores the assigned ClientHandler object for each clientName
     private static final ConcurrentMap<String, Instant> connectTimes = new ConcurrentHashMap<>();   // Stores the time at which each client joined the server, indexed by clientName
     private static final BlockingQueue<CalcRequest> requestQueue = new LinkedBlockingQueue<>(); // A central queue to store all incoming calculation requests in FIFO order
-    private static final ExecutorService clientPool = Executors.newCachedThreadPool();
+    private static final ExecutorService clientPool = Executors.newFixedThreadPool(MAX_CONCURRENT_CLIENTS);
 
     private static final Map<String, Integer> prec = Map.of(
         "+", 1,
