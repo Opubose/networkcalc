@@ -12,10 +12,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Stack;
+import java.util.Deque;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -123,25 +124,25 @@ public class MathServer {
     private static double calculate(final String expression) {
         List<String> tokens = tokenize(expression);
         List<String> output = new ArrayList<>();
-        Stack<String> ops = new Stack<>();
+        Deque<String> ops = new ArrayDeque<>();
 
         for (String token : tokens) {
             if (token.matches("\\d+(\\.\\d+)?")) {
                 output.add(token);
             } else if (prec.containsKey(token)) {
                 while (!ops.isEmpty()
-                       && prec.containsKey(ops.peek())
-                       && prec.get(ops.peek()) >= prec.get(token)) {
-                    output.add(ops.pop());
+                       && prec.containsKey(ops.peekFirst())
+                       && prec.get(ops.peekFirst()) >= prec.get(token)) {
+                    output.add(ops.removeFirst());
                 }
-                ops.push(token);
+                ops.addFirst(token);
             } else if ("(".equals(token)) {
-                ops.push(token);
+                ops.addFirst(token);
             } else if (")".equals(token)) {
-                while (!ops.isEmpty() && !"(".equals(ops.peek())) {
-                    output.add(ops.pop());
+                while (!ops.isEmpty() && !"(".equals(ops.peekFirst())) {
+                    output.add(ops.removeFirst());
                 }
-                if (ops.isEmpty() || ! "(".equals(ops.pop())) {
+                if (ops.isEmpty() || ! "(".equals(ops.removeFirst())) {
                     throw new IllegalArgumentException("Invalid Expression Format");
                 }
             } else {
@@ -149,38 +150,38 @@ public class MathServer {
             }
         }
         while (!ops.isEmpty()) {
-            final String op = ops.pop();
+            final String op = ops.removeFirst();
             if ("(".equals(op) || ")".equals(op)) {
                 throw new IllegalArgumentException("Invalid Expression Format");
             }
             output.add(op);
         }
         
-        Stack<Double> eval = new Stack<>();
+        Deque<Double> eval = new ArrayDeque<>();
         for (final String token : output) {
             if (prec.containsKey(token)) {
                 if (eval.size() < 2) {
                     throw new IllegalArgumentException("Invalid Expression Format");
                 }
 
-                final double b = eval.pop();
-                final double a = eval.pop();
+                final double b = eval.removeFirst();
+                final double a = eval.removeFirst();
                 switch (token) {
-                    case "+" -> eval.push(a + b);
-                    case "-" -> eval.push(a - b);
-                    case "*" -> eval.push(a * b);
-                    case "/" -> eval.push(a / b);
-                    case "%" -> eval.push(a % b);
+                    case "+" -> eval.addFirst(a + b);
+                    case "-" -> eval.addFirst(a - b);
+                    case "*" -> eval.addFirst(a * b);
+                    case "/" -> eval.addFirst(a / b);
+                    case "%" -> eval.addFirst(a % b);
                 }
             } else {
-                eval.push(Double.parseDouble(token));
+                eval.addFirst(Double.parseDouble(token));
             }
         }
 
         if (eval.size() != 1) {
             throw new IllegalArgumentException("Invalid Expression Format");
         }
-        return eval.pop();
+        return eval.removeFirst();
     }
 
     /**
